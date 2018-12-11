@@ -10,11 +10,12 @@ import logging
 import queue
 import serial
 import serial.tools.list_ports
+import struct
 import threading
 import time
 
 # USB-UART Constants
-DESCRIPTOR_NAME = "USB Serial Device"
+DESCRIPTOR_NAME = "FT230X Basic UART"
 BAUD_RATE = 115200
 STOP_BITS = serial.STOPBITS_ONE
 PARITY = serial.PARITY_NONE
@@ -52,15 +53,19 @@ class PyComComm(object):
         if not port:
             self.auto_find_com_port()
 
-        SerialHandler(self.device, )
+        serial_thread = SerialHandler(self.device, self.from_device, self.to_device, self.wait_for_packet, data_length)
+        serial_thread.start()
+        self.reading = True
         self.start_streaming()
 
     def start_streaming(self):
-        self.reading = True
         while self.reading:
             self.wait_for_packet.wait()
             if self.print_message:
-                print(self.from_device.get())
+                print("got package:")
+                new_data = self.from_device.get()
+                print(new_data)
+                print(struct.unpack('=BHfffffffffffff', new_data))
                 # else another section needs to get the queue
         logging.debug("Ending streaming")
 
@@ -90,6 +95,7 @@ class SerialHandler(threading.Thread):
     """
     def __init__(self, port: serial.Serial, in_queue: queue.Queue, out_queue: queue.Queue,
                  data_ready: threading.Event, packet_length: int):
+        threading.Thread.__init__(self)
         self.comm_port = port
         self.input = in_queue
         self.output = out_queue
@@ -102,13 +108,33 @@ class SerialHandler(threading.Thread):
 
     def run(self):
         self.running = True
+        self.comm_port.write(b'hub.start()\r')
+        print('sending start')
         while self.running:
+            # print(self.comm_port.in_waiting)
+            time.sleep(5)
+            print('run')
+            self.comm_port.write(b'hub.read_data()\r')
             if not self.output.empty():
                 self.send_command()
             elif self.comm_port.in_waiting:
-                self.packet += self.comm_port.read_all()
+                self.packet = self.comm_port.read_all()
+                print('packet: ', self.packet)
+                print('split packet: ')
+                print(self.packet.split(b'>>> '))
                 # parse the data packet
+                self.parse_input()
 
+    def parse_input(self):
+        # chop last 3 bytes that is the b'>>> ' put on by REPL and the echo ended with a \r\n
+        packets = self.packet[:-4].split(b'\r\n')[1:]
+        self.packet = b"".join(packets)
+        print(self.packet)
+        print(len(self.packet))
+        while len(self.packet) >= self.data_length:
+            self.input.put(self.packet[:self.data_length])
+            self.packet = self.packet[self.data_length:]
+            self.packet_ready.set()
 
     def send_command(self):
         command_to_send = self.to_device_queue.get()
@@ -136,4 +162,4 @@ def convert_to_bytes(_string: str) -> bytes:
 
 
 if __name__ == '__main__':
-    PyComComm(5)
+    PyComComm(55)
