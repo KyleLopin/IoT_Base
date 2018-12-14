@@ -206,4 +206,4 @@ def convert_to_bytes(_string: str) -> bytes:
 
 
 if __name__ == '__main__':
-    PyComComm(5)
+    PyComComm(55)
