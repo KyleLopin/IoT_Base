@@ -10,22 +10,25 @@ __author__ = "Kyle Vitatus Lopin"
 import tkinter as tk
 from tkinter import ttk
 # local files
+import graph_frame
+import sensor_node_data
 
 
 class PerfectEarthGUI(tk.Tk):
     def __init__(self, parent=None):
         tk.Tk.__init__(self, parent)
+        # make data class for the data
+        data = sensor_node_data.SensorHubData()
+
         # make ttk tabs
         self.notebook = ttk.Notebook(self)
+        color_frame = graph_frame.DataGraphFrame(self, self.notebook, data, 'Color Scale')
+        self.notebook.add(color_frame, text="Color qualities")
 
-
-
-        # for i, possible_sensor in enumerate(["AS7262", "AS7263"]):
-        #     for sensor in self.device.sensors:
-        #         if sensor.sensor_type == possible_sensor:
-        #             new_sensor_frame = spectro_frame.ColorSpectorFrame(self, self.notebook, sensor, self.device)
-        #             self.notebook.add(new_sensor_frame, text=sensor.sensor_type)
-        # self.notebook.pack(side=tk.TOP, expand=True, fill=tk.BOTH)
+        temp_frame = graph_frame.DataGraphFrame(self, self.notebook, data, 'Temperature')
+        self.notebook.add(temp_frame, text="Temperature")
+        # all tabs in so pack the notebook on the main frame
+        self.notebook.pack(side=tk.TOP, expand=True, fill=tk.BOTH)
 
         # make run button
         self.running = False  # type: bool
@@ -47,5 +50,5 @@ class PerfectEarthGUI(tk.Tk):
 if __name__ == '__main__':
     app = PerfectEarthGUI()
     app.title("Perfect Earth Analytics")
-    app.geometry("500x450")
+    app.geometry("900x500")
     app.mainloop()

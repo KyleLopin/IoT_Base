@@ -18,6 +18,7 @@ DATA_BYTES_READ_PER_SESSION = 50000  # reading once a second, will be 43200 in 1
 
 COEFFS = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 
+
 class SensorHubData(object):
     def __init__(self):
         self.raw_color_data = np.zeros((DATA_BYTES_READ_PER_SESSION),
