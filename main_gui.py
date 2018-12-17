@@ -8,10 +8,14 @@ __author__ = "Kyle Vitatus Lopin"
 
 # standard libraries
 import tkinter as tk
+from tkinter import messagebox
 from tkinter import ttk
 # local files
+import comm_uart as comm
 import graph_frame
 import sensor_node_data
+
+DATA_LENGTH = 55
 
 
 class PerfectEarthGUI(tk.Tk):
@@ -30,25 +34,42 @@ class PerfectEarthGUI(tk.Tk):
         # all tabs in so pack the notebook on the main frame
         self.notebook.pack(side=tk.TOP, expand=True, fill=tk.BOTH)
 
+        # connect the device through the communication module
+        self.device = comm.PyComComm(DATA_LENGTH)
+        # print('device: ', self.device.device)
+        if not self.device.device:  # TODO: abstract this better
+            messagebox.showerror("Missing Sensor Hub", message="Please connect the sensor hub to a USB port")
+
         # make run button
         self.running = False  # type: bool
-        self.run_button = tk.Button(self, text="Run", command=self.run_button_handler)
-        self.run_button.pack(side=tk.BOTTOM)
+        self.bottom_frame = tk.Frame(self, relief=tk.GROOVE, bd=4, bg='wheat4')
+        self.bottom_frame.pack(side=tk.BOTTOM, fill=tk.X)
+        self.run_button = tk.Button(self.bottom_frame, text="Run",
+                                    command=self.run_button_handler,
+                                    width=20, bd=5, relief=tk.RAISED)
+        self.run_button.pack(side=tk.BOTTOM, pady=5)
 
     def run_button_handler(self):
         if self.running:
             # system in running to send stop message and update button
             print("TODO: send stop message")
-            self.run_button.config(text="Run")
+            if not self.device.device:  # TODO: abstract this better
+                messagebox.showerror("Missing Sensor Hub", message="Please connect the sensor hub to a USB port")
+            else:
+                self.device.stop_streaming()
+            self.run_button.config(text="Run", relief=tk.RAISED)
             self.running = False
         else:
-            print("TODO: send start message")
-            self.run_button.config(text="Stop")
+            if not self.device.device:  # TODO: abstract this better
+                messagebox.showerror("Missing Sensor Hub", message="Please connect the sensor hub to a USB port")
+            else:
+                self.device.start_streaming()
+            self.run_button.config(text="Stop", relief=tk.SUNKEN)
             self.running = True
 
 
 if __name__ == '__main__':
     app = PerfectEarthGUI()
     app.title("Perfect Earth Analytics")
-    app.geometry("900x500")
+    app.geometry("900x650")
     app.mainloop()

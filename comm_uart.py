@@ -58,12 +58,14 @@ class PyComComm(object):
         if not port:
             self.auto_find_com_port()
 
-        serial_thread = SerialHandler(self.device, self.from_device, self.to_device, self.wait_for_packet, data_length)
-        serial_thread.start()
-        self.start_streaming()
+        self.serial_thread = SerialHandler(self.device, self.from_device, self.to_device, self.wait_for_packet, data_length)
+
+        # self.start_streaming()
 
     def start_streaming(self):
+        print('starting to stream')
         self.reading = True
+        self.serial_thread.start()
         while self.reading:
             self.wait_for_packet.wait()
             if self.print_message:
@@ -78,6 +80,7 @@ class PyComComm(object):
         logging.debug("Ending streaming")
 
     def stop_streaming(self):
+        self.serial_thread.stop_running()
         self.reading = False
 
     def auto_find_com_port(self):
@@ -136,6 +139,8 @@ class SerialHandler(threading.Thread):
 
     def run(self):
         self.running = True
+        if not self.comm_port:  # no device so just return
+            return
         self.comm_port.write(b'read_data()\r')
         print('sending start')
         while self.running:
@@ -180,6 +185,9 @@ class SerialHandler(threading.Thread):
             self.input.put(self.packet[:self.data_length])
             self.packet = self.packet[self.data_length:]
             self.packet_ready.set()
+
+    def stop_running(self):
+        self.running = False
 
     def send_command(self):
         command_to_send = self.to_device_queue.get()

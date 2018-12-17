@@ -20,6 +20,8 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk as NavToolbar
 # local files
 
+FIGURE_SIZE = (8, 4)
+
 
 class DataGraphFrame(tk.Frame):
     def __init__(self, master, parent_notebook, data, type):
@@ -32,17 +34,20 @@ class DataGraphFrame(tk.Frame):
 class GraphFrame(tk.Frame):
     def __init__(self, master_frame, data, type):
         tk.Frame.__init__(self, master=master_frame)
+        self.config(bg='white')
         self.plotted_lines = []  # type: list # to hold lines to update with new data
         self.data = data
-        self.figure_bed = plt.figure(figsize=(8, 5))
+        self.figure_bed = plt.figure(figsize=FIGURE_SIZE)
         self.axis = plt.subplot(111)
-        self.figure_bed.autofmt_xdate()
+        x_format = mdates.DateFormatter("%H:%M")
+        # self.figure_bed.autofmt_xdate()
+        self.axis.xaxis.set_major_formatter(x_format)
         self.axis.format_coord = lambda x, y: ""  # remove the coordinates in the toolbox
 
         # set the limits of the frame
         start_time = datetime.now()
 
-        self.axis.set_xlim([start_time, start_time+timedelta(minutes=30)])
+        self.axis.set_xlim([start_time, start_time+timedelta(hours=2)])
         if type == 'Temperature':
             self.axis.set_ylim([15, 100])
 
@@ -58,7 +63,6 @@ class GraphFrame(tk.Frame):
 
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side='left', fill=tk.BOTH, expand=1)
-
 
 
 if __name__ == '__main__':
