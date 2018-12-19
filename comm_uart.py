@@ -15,7 +15,8 @@ import threading
 import time
 
 # USB-UART Constants
-DESCRIPTOR_NAME = "USB Serial Port"
+DESCRIPTOR_NAME_WIN = "USB Serial Port"
+DESCRIPTOR_NAME_MAC = "FT230X Basic UART"
 BAUD_RATE = 115200
 STOP_BITS = serial.STOPBITS_ONE
 PARITY = serial.PARITY_NONE
@@ -87,12 +88,12 @@ class PyComComm(object):
         available_ports = serial.tools.list_ports
         print(available_ports)
         for port in available_ports.comports():  # type: serial.Serial
-            print("port:", port, DESCRIPTOR_NAME in port.description)
-            print('check: ', DESCRIPTOR_NAME, port.description)
+            print("port:", port, DESCRIPTOR_NAME_WIN in port.description)
+            print('check: ', DESCRIPTOR_NAME_WIN, port.description)
             print(port.device)
             print(port.name)
             print(port.description)
-            if DESCRIPTOR_NAME in port.description:
+            if DESCRIPTOR_NAME_WIN in port.description or DESCRIPTOR_NAME_MAC in port.description:
                 try:
                     print("Port found: ", port)
                     self.device = serial.Serial(port.device, baudrate=BAUD_RATE, stopbits=STOP_BITS,
@@ -147,13 +148,16 @@ class SerialHandler(threading.Thread):
             time.sleep(0.1)  # ease the load on the computer
             if not self.output.empty():
                 self.send_command()
-            elif self.comm_port.in_waiting:
+            if self.comm_port.in_waiting:
                 self.packet += self.comm_port.readline()
                 print('packet: ', self.packet)
                 # parse the data packet
                 self.parse_input()
 
     def parse_input(self):
+        pass
+
+    def parse_input_old(self):
         print("len input: ", len(self.packet))
         if len(self.packet) < self.data_packet_length:
             print("too short, return")
