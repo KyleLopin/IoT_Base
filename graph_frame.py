@@ -19,20 +19,24 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk as NavToolbar
 # local files
+import sensor_node_data  # for type hinting
 
 FIGURE_SIZE = (8, 4)
 
 
 class DataGraphFrame(tk.Frame):
-    def __init__(self, master, parent_notebook, data, type):
+    def __init__(self, master, parent_notebook, data: sensor_node_data.SensorHubData, type):
         ttk.Frame.__init__(self, parent_notebook)
         self.graph = GraphFrame(self, data, type)  # make graph
         self.graph.pack(side='left', expand=True, fill=tk.BOTH)
         self.pack()
 
+    def update(self):
+        self.graph.update()
+
 
 class GraphFrame(tk.Frame):
-    def __init__(self, master_frame, data, type):
+    def __init__(self, master_frame, data: sensor_node_data.SensorHubData, type):
         tk.Frame.__init__(self, master=master_frame)
         self.config(bg='white')
         self.plotted_lines = []  # type: list # to hold lines to update with new data
@@ -63,6 +67,18 @@ class GraphFrame(tk.Frame):
 
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side='left', fill=tk.BOTH, expand=1)
+
+    def update(self):
+        print("update")
+        t_series1 = self.data.sensors[0].raw_color_data['time']
+        t_series2 = self.data.sensors[1].raw_color_data['time']
+        t_series3 = self.data.sensors[2].raw_color_data['time']
+        color_series1 = self.data.sensors[0].color_index
+        color_series2 = self.data.sensors[1].color_index
+        color_series3 = self.data.sensors[2].color_index
+
+        print('time1: ', t_series1)
+        print('data1: ', color_series1)
 
 
 if __name__ == '__main__':

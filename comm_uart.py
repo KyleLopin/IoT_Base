@@ -32,7 +32,7 @@ LEN_DATA_PACKET_BYTES = 55
 LEN_DATA_PACKET_CHARS = 2 * LEN_DATA_PACKET_BYTES
 
 
-class PyComComm(object):
+class PyComComm(threading.Thread):
     def __init__(self, data_struct: sensor_node_data.SensorHubData,
                  data_length, data_in_queue: queue.Queue=None, data_out_queue:
                  queue.Queue=None, port: serial.Serial=None):
@@ -47,6 +47,7 @@ class PyComComm(object):
         :TODO add protocol to use data packet separators
         :TODO add in protocol to read length like in CySmart
         """
+        threading.Thread.__init__(self)
         self.data = data_struct
         if data_out_queue:
             self.to_device = data_out_queue
@@ -69,7 +70,7 @@ class PyComComm(object):
         self.serial_thread = SerialHandler(self.device, self.from_device, self.to_device, self.wait_for_packet, data_length)
         # self.start_streaming()
 
-    def start_streaming(self):
+    def run(self):
         print('starting to stream')
         self.reading = True
         self.serial_thread.start()
@@ -87,9 +88,11 @@ class PyComComm(object):
                 # else another section needs to get the queue
         logging.debug("Ending streaming")
 
-    def stop_streaming(self):
+    def stop(self):
         self.serial_thread.stop_running()
         self.reading = False
+        self.wait_for_packet.set()  # set last event so the run will proceed for the last time
+        self.serial_thread.running = False
 
     def auto_find_com_port(self):
         available_ports = serial.tools.list_ports
@@ -158,6 +161,9 @@ class SerialHandler(threading.Thread):
                 self.send_command()
             if self.comm_port.in_waiting:
                 packet = self.comm_port.readline()
+                # if self.remaining_packet:  # extra data was picked up on the end of previous data so add it in now
+                #     packet = PRE_DATA_STR + self.remaining_packet + packet  # parse_inputs needs to see the PRE_DATA_STR
+                #     self.remaining_packet = b""
                 # print('packet1: ', packet)
                 # parse the data packet
                 self.parse_input(packet)
@@ -166,7 +172,11 @@ class SerialHandler(threading.Thread):
         print('packet2: ', packet)
         if packet.startswith(PRE_DATA_STR):
             print('got data')
-            data = packet[LEN_PRE_DATA_STR:-3]  # slice the bytes hexiflied string by removing the Data:b' at the start
+            if self.remaining_packet:
+                data = self.remaining_packet + packet[LEN_PRE_DATA_STR:-3]
+                self.remaining_packet = None
+            else:
+                data = packet[LEN_PRE_DATA_STR:-3]  # slice the bytes hexiflied string by removing the Data:b' at the start
             # and the '\r\n 3 bytes at the end
             print(data)
             # TODO: put the packet and set the flag
@@ -187,7 +197,7 @@ class SerialHandler(threading.Thread):
                 self.input.put(convert_to_bytes(data_packet[:LEN_DATA_PACKET_CHARS]))
                 data_packet = data_packet[LEN_DATA_PACKET_CHARS:]
                 print('len remaining data: ', len(data_packet), data_packet)
-            self.remaining_packet = data_packet
+            # self.remaining_packet = data_packet
             self.packet_ready.set()
 
     def parse_input_old(self):
@@ -224,6 +234,8 @@ class SerialHandler(threading.Thread):
             self.packet_ready.set()
 
     def stop_running(self):
+        print("Stoping")
+        self.comm_port.write(b'stop_reading_data()\r')
         self.running = False
 
     def send_command(self):

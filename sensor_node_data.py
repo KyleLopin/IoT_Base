@@ -20,6 +20,34 @@ COEFFS = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 
 
 class SensorHubData(object):
+    def __init__(self, sensor_numbers):
+        self.sensors = []  # make list of sensor
+        self.color_graph = None  # placeholder, main will make graph after this
+        self.temp_graph = None
+        for i in range(sensor_numbers):
+            print('making sensor: ', i)
+            self.sensors.append(SensorData())
+
+    def add_graphs(self, color_graph, temp_graph):
+        self.color_graph = color_graph
+        self.temp_graph = temp_graph
+
+    def add_data(self, data):
+        print('add out: ', data)
+        if self.data_has_error(data):
+            print('error in data packet')
+            return
+        # the first entry of the data is the sensor number (1 indexed, not 0 so add 1) so add data to that sensor
+        self.sensors[data[0]-1].add_data(data)
+
+    @staticmethod
+    def data_has_error(data):
+        if data[0] > 4:
+            return True
+        return False
+
+
+class SensorData(object):
     def __init__(self):
         self.raw_color_data = np.zeros((DATA_BYTES_READ_PER_SESSION),
                                        dtype=[('sequence', np.uint16),
@@ -37,14 +65,10 @@ class SensorHubData(object):
         self.current_index = 0
 
     def add_data(self, data):
-        print('add: ', data)
-        if self.data_has_error(data):
-            print('error in data packet')
-            return
+        print('add in: ', data)
         if data[1] == self.last_sequence:
             print('duplicate data')
             return
-
 
         # self.time_stamps[self.current_index] = datetime.datetime.now()
         self.raw_color_data[self.current_index]['time'] = datetime.datetime.now()
@@ -55,14 +79,9 @@ class SensorHubData(object):
         self.raw_color_data[self.current_index]['spectro_data'] = data[3:]
         self.process_data()
         self.current_index += 1
-        print(self.raw_color_data[self.current_index-1])
+        # print(self.raw_color_data[self.current_index-1])
         self.last_sequence = data[1]
         # time.sleep(1)
-
-    def data_has_error(self, data):
-        if data[0] > 4:
-            return True
-        return False
 
     def process_data(self):
         color_index = 0.0
@@ -78,7 +97,7 @@ class SensorHubData(object):
         xfmt = mdates.DateFormatter('%H:%M:%S')
 
         y = self.color_index[:self.current_index]
-        ax=plt.subplot(111)
+        ax = plt.subplot(111)
         ax.plot(time, y)
         ax.xaxis.set_major_formatter(xfmt)
         # ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=5))
