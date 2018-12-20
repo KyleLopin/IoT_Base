@@ -38,6 +38,14 @@ class SensorHubData(object):
 
     def add_data(self, data):
         print('add: ', data)
+        if self.data_has_error(data):
+            print('error in data packet')
+            return
+        if data[1] == self.last_sequence:
+            print('duplicate data')
+            return
+
+
         # self.time_stamps[self.current_index] = datetime.datetime.now()
         self.raw_color_data[self.current_index]['time'] = datetime.datetime.now()
         self.raw_color_data[self.current_index]['sequence'] = data[1]
@@ -48,7 +56,13 @@ class SensorHubData(object):
         self.process_data()
         self.current_index += 1
         print(self.raw_color_data[self.current_index-1])
-        time.sleep(1)
+        self.last_sequence = data[1]
+        # time.sleep(1)
+
+    def data_has_error(self, data):
+        if data[0] > 4:
+            return True
+        return False
 
     def process_data(self):
         color_index = 0.0

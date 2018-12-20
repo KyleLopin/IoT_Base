@@ -35,7 +35,7 @@ class PerfectEarthGUI(tk.Tk):
         self.notebook.pack(side=tk.TOP, expand=True, fill=tk.BOTH)
 
         # connect the device through the communication module
-        self.device = comm.PyComComm(DATA_LENGTH)
+        self.device = comm.PyComComm(data, DATA_LENGTH)
         # print('device: ', self.device.device)
         if not self.device.device:  # TODO: abstract this better
             messagebox.showerror("Missing Sensor Hub", message="Please connect the sensor hub to a USB port")

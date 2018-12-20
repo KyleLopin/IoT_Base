@@ -13,6 +13,8 @@ import serial.tools.list_ports
 import struct
 import threading
 import time
+# local files
+import sensor_node_data  # for type hinting
 
 # USB-UART Constants
 DESCRIPTOR_NAME_WIN = "USB Serial Port"
@@ -23,12 +25,16 @@ PARITY = serial.PARITY_NONE
 BYTE_SIZE = serial.EIGHTBITS
 
 DETECTION_MESSAGE = b"Echo this when done"
-PRE_DATA_STR = b"Data:"
+PRE_DATA_STR = b"Data:b'"
 LEN_PRE_DATA_STR = len(PRE_DATA_STR)
+
+LEN_DATA_PACKET_BYTES = 55
+LEN_DATA_PACKET_CHARS = 2 * LEN_DATA_PACKET_BYTES
 
 
 class PyComComm(object):
-    def __init__(self, data_length, data_in_queue: queue.Queue=None, data_out_queue:
+    def __init__(self, data_struct: sensor_node_data.SensorHubData,
+                 data_length, data_in_queue: queue.Queue=None, data_out_queue:
                  queue.Queue=None, port: serial.Serial=None):
         """
         Construct an object that abstracts the communication protocol.  Custom calls should be put in here
@@ -41,6 +47,7 @@ class PyComComm(object):
         :TODO add protocol to use data packet separators
         :TODO add in protocol to read length like in CySmart
         """
+        self.data = data_struct
         if data_out_queue:
             self.to_device = data_out_queue
         else:
@@ -60,7 +67,6 @@ class PyComComm(object):
             self.auto_find_com_port()
 
         self.serial_thread = SerialHandler(self.device, self.from_device, self.to_device, self.wait_for_packet, data_length)
-
         # self.start_streaming()
 
     def start_streaming(self):
@@ -70,11 +76,12 @@ class PyComComm(object):
         while self.reading:
             self.wait_for_packet.wait()
             if self.print_message:
-                print("got package:")
                 new_data = self.from_device.get()
-                print(new_data)
+                print("got package: ", new_data)
                 if len(new_data) == 55:
-                    print(struct.unpack('=BHfffffffffffff', new_data))
+                    new_data = struct.unpack('=BHfffffffffffff', new_data)
+                    self.data.add_data(new_data)
+
                 else:
                     print("data not right length")
                 # else another section needs to get the queue
@@ -114,7 +121,7 @@ class PyComComm(object):
             read_message += self.device.readall()
             print("read so far: ")
             print(read_message)
-            if DESCRIPTOR_NAME in read_message:
+            if DESCRIPTOR_NAME_WIN in read_message:
                 print("Done initializing")
 
 
@@ -137,6 +144,7 @@ class SerialHandler(threading.Thread):
         # length of data packet with header and footer (+2 is for the \r\n at the end of packet)
         self.data_packet_length = packet_length + len(PRE_DATA_STR) + 2
         self.packet = b""
+        self.remaining_packet = b""
 
     def run(self):
         self.running = True
@@ -149,13 +157,38 @@ class SerialHandler(threading.Thread):
             if not self.output.empty():
                 self.send_command()
             if self.comm_port.in_waiting:
-                self.packet += self.comm_port.readline()
-                print('packet: ', self.packet)
+                packet = self.comm_port.readline()
+                # print('packet1: ', packet)
                 # parse the data packet
-                self.parse_input()
+                self.parse_input(packet)
 
-    def parse_input(self):
-        pass
+    def parse_input(self, packet: str):
+        print('packet2: ', packet)
+        if packet.startswith(PRE_DATA_STR):
+            print('got data')
+            data = packet[LEN_PRE_DATA_STR:-3]  # slice the bytes hexiflied string by removing the Data:b' at the start
+            # and the '\r\n 3 bytes at the end
+            print(data)
+            # TODO: put the packet and set the flag
+            self.parse_data_packet(data)
+        else:
+            print('non-data packet')
+
+    def parse_data_packet(self, data_packet):
+        # check if one or more data sets were sent
+        print('len: ', len(data_packet))
+        if len(data_packet) == LEN_DATA_PACKET_CHARS:
+            print('putting packet a: ', data_packet)
+            self.input.put(convert_to_bytes(data_packet))
+            self.packet_ready.set()
+        elif len(data_packet) > LEN_DATA_PACKET_CHARS:
+            while len(data_packet) > LEN_DATA_PACKET_CHARS:
+                print('putting data: ', data_packet[:LEN_DATA_PACKET_CHARS])
+                self.input.put(convert_to_bytes(data_packet[:LEN_DATA_PACKET_CHARS]))
+                data_packet = data_packet[LEN_DATA_PACKET_CHARS:]
+                print('len remaining data: ', len(data_packet), data_packet)
+            self.remaining_packet = data_packet
+            self.packet_ready.set()
 
     def parse_input_old(self):
         print("len input: ", len(self.packet))
@@ -214,8 +247,14 @@ def convert_to_bytes(_string: str) -> bytes:
     # print('new string: ', binascii.unhexlify(_string.replace(b' ', b'').replace(b':', b'')))
     print('llll')
     print(_string, type(_string))
-    return binascii.unhexlify(_string.replace(' ', '').replace(':', ''))
+    if type(_string) is str:
+        return binascii.unhexlify(_string.replace(' ', '').replace(':', ''))
+    elif type(_string) is bytes:
+        return binascii.unhexlify(_string.replace(b' ', b'').replace(b':', b''))
+    else:
+        raise Exception("Use string or byte string")
 
 
 if __name__ == '__main__':
-    PyComComm(55)
+    # PyComComm(55)
+    print(convert_to_bytes("01:04"))
