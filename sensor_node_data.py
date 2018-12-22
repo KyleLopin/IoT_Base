@@ -11,7 +11,6 @@ import datetime
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import numpy as np
-import time
 
 RAW_DATA_BYTES_READ = 54
 DATA_BYTES_READ_PER_SESSION = 50000  # reading once a second, will be 43200 in 12 hours, so this will cover 13.8 hours
@@ -63,15 +62,21 @@ class SensorData(object):
         self.last_sequence = -10  # guarantee the sequence is out of order first time to get a time stamp
         self.time_stamps = []  # list of tuples with (index, time_stamp) for when the sequence numbers are off
         self.current_index = 0
+        self.temp_filename = "temp_data.npy"
 
     def add_data(self, data):
         print('add in: ', data)
         if data[1] == self.last_sequence:
             print('duplicate data')
             return
+        elif data[1] == self.last_sequence + 1:
+            # print('pre time')
+            seq_time = self.raw_color_data[self.current_index-1]['time'] + np.timedelta64(1, 's')
+            # print('sed time: ', seq_time)
+            self.raw_color_data[self.current_index]['time'] = seq_time
+        else:
+            self.raw_color_data[self.current_index]['time'] = datetime.datetime.now()
 
-        # self.time_stamps[self.current_index] = datetime.datetime.now()
-        self.raw_color_data[self.current_index]['time'] = datetime.datetime.now()
         self.raw_color_data[self.current_index]['sequence'] = data[1]
         self.last_sequence = data[1]
         self.raw_color_data[self.current_index]['temp'] = data[2]
@@ -79,9 +84,18 @@ class SensorData(object):
         self.raw_color_data[self.current_index]['spectro_data'] = data[3:]
         self.process_data()
         self.current_index += 1
-        # print(self.raw_color_data[self.current_index-1])
+        print(self.raw_color_data[self.current_index-1])
         self.last_sequence = data[1]
-        # time.sleep(1)
+        if self.current_index % 60 == 0:
+            print('====SAVING DATA ========')
+            # every minute save data to temp file
+            # self.raw_color_data[:self.current_index-1].tofile(self.temp_filename)
+            self.raw_color_data[:self.current_index-1].savetxt(self.temp_filename)
+
+    def data_has_error(self, data):
+        if data[0] > 4:
+            return True
+        return False
 
     def process_data(self):
         color_index = 0.0

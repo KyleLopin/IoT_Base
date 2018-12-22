@@ -51,7 +51,7 @@ class GraphFrame(tk.Frame):
         # set the limits of the frame
         start_time = datetime.now()
 
-        self.axis.set_xlim([start_time, start_time+timedelta(hours=2)])
+        self.axis.set_xlim([start_time - timedelta(minutes=5), start_time+timedelta(minutes=15)])
         if type == 'Temperature':
             self.axis.set_ylim([15, 100])
 
@@ -67,18 +67,43 @@ class GraphFrame(tk.Frame):
 
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side='left', fill=tk.BOTH, expand=1)
+        self.line1 = None
+        self.line2 = None
+
+    def update_proto(self):
+        pass
 
     def update(self):
         print("update")
-        t_series1 = self.data.sensors[0].raw_color_data['time']
-        t_series2 = self.data.sensors[1].raw_color_data['time']
-        t_series3 = self.data.sensors[2].raw_color_data['time']
-        color_series1 = self.data.sensors[0].color_index
-        color_series2 = self.data.sensors[1].color_index
-        color_series3 = self.data.sensors[2].color_index
+        if self.data.sensors[0].current_index == 0:
+            return  # no data
+        data_end0 = self.data.sensors[0].current_index - 1
+        data_end1 = self.data.sensors[1].current_index - 1
+        print('indexes: ', data_end0, data_end1)
+        t_series1 = self.data.sensors[0].raw_color_data['time'][:data_end0]
+        t_series2 = self.data.sensors[1].raw_color_data['time'][:data_end1]
+        # t_series3 = self.data.sensors[2].raw_color_data['time']
+        color_series1 = self.data.sensors[0].color_index[:data_end0]
+        color_series2 = self.data.sensors[1].color_index[:data_end1]
+        # color_series3 = self.data.sensors[2].color_index
 
         print('time1: ', t_series1)
         print('data1: ', color_series1)
+        if self.line1:
+            self.line1.set_ydata(color_series1)
+            self.line1.set_xdata(t_series1)
+        else:
+            self.line1,  = self.axis.plot(t_series1, color_series1)
+
+        if self.line2:
+            self.line2.set_ydata(color_series1)
+            self.line2.set_xdata(t_series1)
+        else:
+            self.line2,  = self.axis.plot(t_series1, color_series1)
+        print(self.line1)
+        self.axis.relim()
+        self.axis.autoscale_view(True, True, True)
+        self.canvas.draw()
 
 
 if __name__ == '__main__':
