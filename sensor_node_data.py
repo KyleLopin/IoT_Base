@@ -15,7 +15,7 @@ import numpy as np
 RAW_DATA_BYTES_READ = 54
 DATA_BYTES_READ_PER_SESSION = 50000  # reading once a second, will be 43200 in 12 hours, so this will cover 13.8 hours
 
-COEFFS = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+COEFFS = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
 
 class SensorHubData(object):
@@ -25,29 +25,29 @@ class SensorHubData(object):
         self.temp_graph = None
         for i in range(sensor_numbers):
             print('making sensor: ', i)
-            self.sensors.append(SensorData())
+            self.sensors.append(SensorData(i))
 
     def add_graphs(self, color_graph, temp_graph):
         self.color_graph = color_graph
         self.temp_graph = temp_graph
 
-    def add_data(self, data):
+    def add_data(self, data, bin_data):
         print('add out: ', data)
         if self.data_has_error(data):
             print('error in data packet')
             return
         # the first entry of the data is the sensor number (1 indexed, not 0 so add 1) so add data to that sensor
-        self.sensors[data[0]-1].add_data(data)
+        self.sensors[data[0]-1].add_data(data, bin_data)
 
     @staticmethod
     def data_has_error(data):
-        if data[0] > 4:
+        if data[0] > 2:
             return True
         return False
 
 
 class SensorData(object):
-    def __init__(self):
+    def __init__(self, sensor_number):
         self.raw_color_data = np.zeros((DATA_BYTES_READ_PER_SESSION),
                                        dtype=[('sequence', np.uint16),
                                               ('time', 'datetime64[s]'),
@@ -62,16 +62,20 @@ class SensorData(object):
         self.last_sequence = -10  # guarantee the sequence is out of order first time to get a time stamp
         self.time_stamps = []  # list of tuples with (index, time_stamp) for when the sequence numbers are off
         self.current_index = 0
-        self.temp_filename = "temp_data.npy"
+        self.filename = "-sensor_{0}_{1}.npy".format(sensor_number, datetime.datetime.now().strftime("%m-%d-%H"))
+        # self.filename = "test.npy"
+        print('filename :', self.filename)
+        self.last_saved_index = 0
 
-    def add_data(self, data):
-        print('add in: ', data)
+    def add_data(self, data, bin_data):
+        # print('add in: ', data, type(bin_data))
+        # print(bin_data)
         if data[1] == self.last_sequence:
-            print('duplicate data')
+            # print('duplicate data')
             return
         elif data[1] == self.last_sequence + 1:
             # print('pre time')
-            seq_time = self.raw_color_data[self.current_index-1]['time'] + np.timedelta64(1, 's')
+            seq_time = self.raw_color_data[self.current_index-1]['time'] + np.timedelta64(2, 's')
             # print('sed time: ', seq_time)
             self.raw_color_data[self.current_index]['time'] = seq_time
         else:
@@ -84,13 +88,28 @@ class SensorData(object):
         self.raw_color_data[self.current_index]['spectro_data'] = data[3:]
         self.process_data()
         self.current_index += 1
-        print(self.raw_color_data[self.current_index-1])
+        # print(self.raw_color_data[self.current_index-1])
         self.last_sequence = data[1]
-        if self.current_index % 60 == 0:
-            print('====SAVING DATA ========')
+
+        with open(self.filename, 'ab') as _f:
+            _f.write(bin_data)
+        _f.close()
+        # if self.current_index % 5 == 0:
+            # print('====SAVING DATA ========', self.filename)
+            # print(self.raw_color_data[self.last_saved_index:self.current_index][:])
             # every minute save data to temp file
             # self.raw_color_data[:self.current_index-1].tofile(self.temp_filename)
-            self.raw_color_data[:self.current_index-1].savetxt(self.temp_filename)
+            # self.raw_color_data[:self.current_index-1].savetxt(self.temp_filename)
+            # np.savetxt(self.filename, self.raw_color_data, fmt='%u, %M, %.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f')
+            # return
+
+            # np.save(self.filename, self.raw_color_data[self.last_saved_index:self.current_index])
+            # self.last_saved_index = self.current_index - 1
+
+            # with open(self.filename, 'ab') as _f:
+            #     np.save(_f, self.raw_color_data[self.last_saved_index:self.current_index][:])
+            #     self.last_saved_index = self.current_index-1
+            # _f.close()
 
     def data_has_error(self, data):
         if data[0] > 4:

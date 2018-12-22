@@ -51,7 +51,7 @@ class GraphFrame(tk.Frame):
         # set the limits of the frame
         start_time = datetime.now()
 
-        self.axis.set_xlim([start_time - timedelta(minutes=5), start_time+timedelta(minutes=15)])
+        self.axis.set_xlim([start_time - timedelta(minutes=15), start_time + timedelta(minutes=5)])
         if type == 'Temperature':
             self.axis.set_ylim([15, 100])
 
@@ -67,13 +67,32 @@ class GraphFrame(tk.Frame):
 
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side='left', fill=tk.BOTH, expand=1)
-        self.line1 = None
-        self.line2 = None
-
-    def update_proto(self):
-        pass
+        self.lines = [None, None]
 
     def update(self):
+        # print('lines: ', self.lines)
+        print('num_data points = ', self.data.sensors[0].current_index - 1)
+        for i, line in enumerate(self.lines):
+            data_end = self.data.sensors[i].current_index
+            time_series = self.data.sensors[i].raw_color_data['time'][:data_end]
+            color_series = self.data.sensors[i].color_index[:data_end]
+            if self.lines[i]:
+                line.set_ydata(color_series)
+                line.set_xdata(time_series)
+                # print('set data: ', color_series)
+                # print(time_series)
+            else:
+                new_line, = self.axis.plot(time_series, color_series)
+                self.lines[i] = new_line  # TODO: does line = new_line work
+        self.axis.relim()
+        self.axis.autoscale_view(True, True, True)
+        now = datetime.now()
+
+        self.axis.set_xlim([now - timedelta(minutes=15), now + timedelta(minutes=5)])
+
+        self.canvas.draw()
+
+    def update_old(self):
         print("update")
         if self.data.sensors[0].current_index == 0:
             return  # no data

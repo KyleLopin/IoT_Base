@@ -49,6 +49,7 @@ class PyComComm(threading.Thread):
         """
         threading.Thread.__init__(self)
         self.data = data_struct
+        self.data_length = data_length
         if data_out_queue:
             self.to_device = data_out_queue
         else:
@@ -67,7 +68,8 @@ class PyComComm(threading.Thread):
         if not port:
             self.auto_find_com_port()
 
-        self.serial_thread = SerialHandler(self.device, self.from_device, self.to_device, self.wait_for_packet, data_length)
+        self.serial_thread = SerialHandler(self.device, self.from_device, self.to_device,
+                                           self.wait_for_packet, data_length)
         # self.start_streaming()
 
     def run(self):
@@ -76,23 +78,37 @@ class PyComComm(threading.Thread):
         self.serial_thread.start()
         while self.reading:
             self.wait_for_packet.wait()
-            if self.print_message:
-                new_data = self.from_device.get()
-                print("got package: ", new_data)
+            self.wait_for_packet.clear()
+
+            while not self.from_device.empty():
+
+                # print('event released', self.reading)
+                if self.print_message:
+                    new_data = self.from_device.get()
+                    # print("got package: ", len(new_data), new_data)
                 if len(new_data) == 55:
-                    new_data = struct.unpack('=BHfffffffffffff', new_data)
-                    self.data.add_data(new_data)
+                    new_data_unpacked = struct.unpack('=BHfffffffffffff', new_data)
+                    # print('adding data in comm_uart: ', new_data)
+                    self.data.add_data(new_data_unpacked, new_data)
+                    # save to file
 
                 else:
                     print("data not right length")
-                # else another section needs to get the queue
-        logging.debug("Ending streaming")
+                    # else another section needs to get the queue
+        print("Ending streaming")
+
+    def restart(self):
+        self.serial_thread = SerialHandler(self.device, self.from_device, self.to_device, self.wait_for_packet,
+                                           self.data_length)
 
     def stop(self):
+        print("stopping, ln 92")
         self.serial_thread.stop_running()
         self.reading = False
-        self.wait_for_packet.set()  # set last event so the run will proceed for the last time
-        self.serial_thread.running = False
+        print('reading: ', self.reading)
+        # self.wait_for_packet.set()  # set last event so the run will proceed for the last time
+        # self.wait_for_packet.clear()
+        # self.serial_thread.running = False
 
     def auto_find_com_port(self):
         available_ports = serial.tools.list_ports
@@ -106,11 +122,14 @@ class PyComComm(threading.Thread):
             if DESCRIPTOR_NAME_WIN in port.description or DESCRIPTOR_NAME_MAC in port.description:
                 try:
                     print("Port found: ", port)
+
                     self.device = serial.Serial(port.device, baudrate=BAUD_RATE, stopbits=STOP_BITS,
                                                 parity=PARITY, bytesize=BYTE_SIZE, timeout=1)
                     print("returning from autofind")
                     return  # a device could connect without an error so return
                 except Exception as error:  # didn't work so try other ports
+
+
                     print("Port access error: ", error)
 
     def initialize_device(self):
@@ -127,6 +146,12 @@ class PyComComm(threading.Thread):
             if DESCRIPTOR_NAME_WIN in read_message:
                 print("Done initializing")
 
+    def close(self):
+        try:
+            self.stop()
+            self.device.close()
+        except:
+            pass
 
 class SerialHandler(threading.Thread):
     """
@@ -156,7 +181,7 @@ class SerialHandler(threading.Thread):
         self.comm_port.write(b'read_data()\r')
         print('sending start')
         while self.running:
-            time.sleep(0.1)  # ease the load on the computer
+            time.sleep(0.05)  # ease the load on the computer
             if not self.output.empty():
                 self.send_command()
             if self.comm_port.in_waiting:
@@ -169,36 +194,46 @@ class SerialHandler(threading.Thread):
                 self.parse_input(packet)
 
     def parse_input(self, packet: str):
-        print('packet2: ', packet)
+        # print('packet2: ', packet)
         if packet.startswith(PRE_DATA_STR):
-            print('got data')
+            # print('got data')
             if self.remaining_packet:
                 data = self.remaining_packet + packet[LEN_PRE_DATA_STR:-3]
                 self.remaining_packet = None
             else:
                 data = packet[LEN_PRE_DATA_STR:-3]  # slice the bytes hexiflied string by removing the Data:b' at the start
             # and the '\r\n 3 bytes at the end
-            print(data)
+            # print(data)
             # TODO: put the packet and set the flag
             self.parse_data_packet(data)
         else:
-            print('non-data packet')
+            # print('non-data packet')
+            pass
 
     def parse_data_packet(self, data_packet):
         # check if one or more data sets were sent
-        print('len: ', len(data_packet))
+        # print('len: ', len(data_packet))
         if len(data_packet) == LEN_DATA_PACKET_CHARS:
-            print('putting packet a: ', data_packet)
+            # print('putting packet a: ', data_packet)
             self.input.put(convert_to_bytes(data_packet))
             self.packet_ready.set()
         elif len(data_packet) > LEN_DATA_PACKET_CHARS:
             while len(data_packet) > LEN_DATA_PACKET_CHARS:
-                print('putting data: ', data_packet[:LEN_DATA_PACKET_CHARS])
+                # print('putting data: ', data_packet[:LEN_DATA_PACKET_CHARS])
                 self.input.put(convert_to_bytes(data_packet[:LEN_DATA_PACKET_CHARS]))
                 data_packet = data_packet[LEN_DATA_PACKET_CHARS:]
-                print('len remaining data: ', len(data_packet), data_packet)
-            # self.remaining_packet = data_packet
+                # print('len remaining data: ', len(data_packet), data_packet)
+                self.packet_ready.set()
+                # print("packet ready is set: ", self.packet_ready.is_set())
+
+        if len(data_packet) == LEN_DATA_PACKET_CHARS:
+            # print('putting packet a: ', data_packet)
+            self.input.put(convert_to_bytes(data_packet))
             self.packet_ready.set()
+            self.packet_ready.clear()
+        elif len(data_packet) > 0 and (data_packet[:2] == b'00' or data_packet[:2] == b'01'):
+            self.remaining_packet = data_packet
+            # print('added extra part')
 
     def parse_input_old(self):
         print("len input: ", len(self.packet))
@@ -257,8 +292,6 @@ def convert_to_bytes(_string: str) -> bytes:
     # print('input string: ', _string)
     # print("hold: ", _string.replace(b' ', b'').replace(b':', b''))
     # print('new string: ', binascii.unhexlify(_string.replace(b' ', b'').replace(b':', b'')))
-    print('llll')
-    print(_string, type(_string))
     if type(_string) is str:
         return binascii.unhexlify(_string.replace(' ', '').replace(':', ''))
     elif type(_string) is bytes:

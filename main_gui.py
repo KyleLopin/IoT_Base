@@ -21,24 +21,25 @@ DATA_LENGTH = 55
 class PerfectEarthGUI(tk.Tk):
     def __init__(self, parent=None):
         tk.Tk.__init__(self, parent)
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
         # make data class for the data
-        data = sensor_node_data.SensorHubData(3)
+        self.data = sensor_node_data.SensorHubData(3)
 
         # make ttk tabs
         self.notebook = ttk.Notebook(self)
-        self.color_frame = graph_frame.DataGraphFrame(self, self.notebook, data, 'Color Scale')
+        self.color_frame = graph_frame.DataGraphFrame(self, self.notebook, self.data, 'Color Scale')
         self.notebook.add(self.color_frame, text="Color qualities")
 
-        self.temp_frame = graph_frame.DataGraphFrame(self, self.notebook, data, 'Temperature')
+        self.temp_frame = graph_frame.DataGraphFrame(self, self.notebook, self.data, 'Temperature')
         self.notebook.add(self.temp_frame, text="Temperature")
         # all tabs in so pack the notebook on the main frame
         self.notebook.pack(side=tk.TOP, expand=True, fill=tk.BOTH)
 
         # add graphs to the data class so it can call the update data directly
-        data.add_graphs(self.color_frame, self.temp_frame)
+        self.data.add_graphs(self.color_frame, self.temp_frame)
 
         # connect the device through the communication module
-        self.device = comm.PyComComm(data, DATA_LENGTH)
+        self.device = comm.PyComComm(self.data, DATA_LENGTH)
         # print('device: ', self.device.device)
         if not self.device.device:  # TODO: abstract this better
             messagebox.showerror("Missing Sensor Hub", message="Please connect the sensor hub to a USB port")
@@ -51,7 +52,7 @@ class PerfectEarthGUI(tk.Tk):
                                     command=self.run_button_handler,
                                     width=20, bd=5, relief=tk.RAISED)
         self.run_button.pack(side=tk.BOTTOM, pady=5)
-        self.after(3000, self.update_graphs)
+        self.graph_updater = self.after(3000, self.update_graphs)
 
     def run_button_handler(self):
         if self.running:
@@ -63,18 +64,27 @@ class PerfectEarthGUI(tk.Tk):
                 self.device.stop()
             self.run_button.config(text="Run", relief=tk.RAISED)
             self.running = False
+
         else:
             if not self.device.device:  # TODO: abstract this better
                 messagebox.showerror("Missing Sensor Hub", message="Please connect the sensor hub to a USB port")
             else:
+                # self.device = comm.PyComComm(self.data, DATA_LENGTH)
+                # self.device.close()
                 self.device.start()
             self.run_button.config(text="Stop", relief=tk.SUNKEN)
             self.running = True
 
     def update_graphs(self):
-        self.after(3000, self.update_graphs)
+        self.graph_updater = self.after(3000, self.update_graphs)
         print('==============UPDATE GRAPH ================')
         self.color_frame.update()
+
+    def on_closing(self):
+        print("closing")
+        self.after_cancel(self.graph_updater)
+        self.device.close()
+        self.destroy()
 
 
 if __name__ == '__main__':
