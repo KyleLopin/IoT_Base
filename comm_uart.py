@@ -87,7 +87,10 @@ class PyComComm(threading.Thread):
                     new_data = self.from_device.get()
                     # print("got package: ", len(new_data), new_data)
                 if len(new_data) == 55:
-                    new_data_unpacked = struct.unpack('=BHfffffffffffff', new_data)
+                    # new_data_unpacked = struct.unpack('=BHfffffffffffff', new_data)
+                    # new_data_unpacked = struct.unpack('=BH13f', new_data)
+                    new_data_unpacked = struct.unpack('=BH', new_data[:3])
+                    new_data_unpacked += struct.unpack('>13f', new_data[3:])
                     # print('adding data in comm_uart: ', new_data)
                     self.data.add_data(new_data_unpacked, new_data)
                     # save to file
