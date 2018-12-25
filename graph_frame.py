@@ -71,10 +71,10 @@ class GraphFrame(tk.Frame):
 
     def update(self):
         # print('lines: ', self.lines)
-        print('num_data points = ', self.data.sensors[0].current_index - 1)
+        print('num_data points = ', self.data.sensors[0].plot_index)
         for i, line in enumerate(self.lines):
-            data_end = self.data.sensors[i].current_index
-            time_series = self.data.sensors[i].raw_color_data['time'][:data_end]
+            data_end = self.data.sensors[i].plot_index
+            time_series = self.data.sensors[i].time_series[:data_end]
             color_series = self.data.sensors[i].color_index[:data_end]
             if self.lines[i]:
                 line.set_ydata(color_series)

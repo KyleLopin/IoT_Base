@@ -13,9 +13,10 @@ import matplotlib.dates as mdates
 import numpy as np
 
 RAW_DATA_BYTES_READ = 54
+TIME_BETWEEN_READS = 1500  # milliseconds between sensor reading
 DATA_BYTES_READ_PER_SESSION = 50000  # reading once a second, will be 43200 in 12 hours, so this will cover 13.8 hours
 
-COEFFS = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+COEFFS = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 
 
 class SensorHubData(object):
@@ -54,18 +55,21 @@ class SensorData(object):
                                               ('temp', np.float32),
                                               ('spectro_data', np.float32, (1, 12))])
         print('size:', self.raw_color_data.nbytes)
-        self.color_index = np.zeros(DATA_BYTES_READ_PER_SESSION, dtype=np.float32)
-
+        # the color index is lights on reading minus the lights off reading so there are only half the data points
+        self.color_index = np.zeros(DATA_BYTES_READ_PER_SESSION//2, dtype=np.float32)
+        self.time_series = np.zeros(DATA_BYTES_READ_PER_SESSION//2, dtype='datetime64[s]')  # same as color index
         self.temp_data = np.zeros(DATA_BYTES_READ_PER_SESSION, dtype=np.float32)
         print(self.temp_data)
         self.sequence_data = np.zeros(DATA_BYTES_READ_PER_SESSION, dtype=np.int16)
         self.last_sequence = -10  # guarantee the sequence is out of order first time to get a time stamp
-        self.time_stamps = []  # list of tuples with (index, time_stamp) for when the sequence numbers are off
+
         self.current_index = 0
         self.filename = "-sensor_{0}_{1}.npy".format(sensor_number, datetime.datetime.now().strftime("%m-%d-%H"))
         # self.filename = "test.npy"
         print('filename :', self.filename)
         self.last_saved_index = 0
+        self.plot_index = 0
+        self.last_off_color_index = None
 
     def add_data(self, data, bin_data):
         # print('add in: ', data, type(bin_data))
@@ -75,7 +79,7 @@ class SensorData(object):
             return
         elif data[1] == self.last_sequence + 1:
             # print('pre time')
-            seq_time = self.raw_color_data[self.current_index-1]['time'] + np.timedelta64(2, 's')
+            seq_time = self.raw_color_data[self.current_index-1]['time'] + np.timedelta64(TIME_BETWEEN_READS, 'ms')
             # print('sed time: ', seq_time)
             self.raw_color_data[self.current_index]['time'] = seq_time
         else:
@@ -86,10 +90,13 @@ class SensorData(object):
         self.raw_color_data[self.current_index]['temp'] = data[2]
         self.temp_data[self.current_index] = data[2]
         self.raw_color_data[self.current_index]['spectro_data'] = data[3:]
-        self.process_data()
+
+        self.process_data(data)
+
         self.current_index += 1
         # print(self.raw_color_data[self.current_index-1])
         self.last_sequence = data[1]
+
 
         with open(self.filename, 'ab') as _f:
             _f.write(bin_data)
@@ -116,11 +123,20 @@ class SensorData(object):
             return True
         return False
 
-    def process_data(self):
+    def process_data(self, data):
+        if (data[1] % 2 == 0) and self.last_off_color_index is not None:
+            self.color_index[self.plot_index] = self.calculate_raw_color_index() - self.last_off_color_index
+            self.time_series[self.plot_index] = self.raw_color_data[self.current_index]['time']
+            self.plot_index += 1
+        else:
+            self.last_off_color_index = self.calculate_raw_color_index()
+
+    def calculate_raw_color_index(self):
         color_index = 0.0
         for i, data_pt in enumerate(self.raw_color_data[self.current_index]['spectro_data'][0]):
             color_index += data_pt * COEFFS[i]
-        self.color_index[self.current_index] = color_index
+        print('returning color index: ', color_index, self.raw_color_data[self.current_index]['spectro_data'])
+        return color_index
 
     def save_data(self):
         self.raw_color_data[:self.current_index].tofile('test.fsg_nu')
