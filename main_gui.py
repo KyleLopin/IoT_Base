@@ -1,10 +1,11 @@
 # Copyright (c) 2018 Kyle Lopin (Naresuan University) <kylel@nu.ac.th>
 
 """
-
+Graphical User Interface to read data from the Sensor Hub through the USB.  The sensor hub will receive data
+from the different sensor nodes through the wifi and transmit it to the computer for this program.
 """
 
-__author__ = "Kyle Vitatus Lopin"
+__author__ = "Kyle Vitautus Lopin"
 
 # standard libraries
 import tkinter as tk

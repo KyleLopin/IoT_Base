@@ -135,7 +135,7 @@ class SensorData(object):
         color_index = 0.0
         for i, data_pt in enumerate(self.raw_color_data[self.current_index]['spectro_data'][0]):
             color_index += data_pt * COEFFS[i]
-        print('returning color index: ', color_index, self.raw_color_data[self.current_index]['spectro_data'])
+        # print('returning color index: ', color_index, self.raw_color_data[self.current_index]['spectro_data'])
         return color_index
 
     def save_data(self):
