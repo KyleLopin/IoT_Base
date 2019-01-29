@@ -192,7 +192,7 @@ class SerialHandler(threading.Thread):
                 # if self.remaining_packet:  # extra data was picked up on the end of previous data so add it in now
                 #     packet = PRE_DATA_STR + self.remaining_packet + packet  # parse_inputs needs to see the PRE_DATA_STR
                 #     self.remaining_packet = b""
-                # print('packet1: ', packet)
+                print('packet: ', packet)
                 # parse the data packet
                 self.parse_input(packet)
 

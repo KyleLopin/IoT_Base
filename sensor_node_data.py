@@ -16,7 +16,7 @@ RAW_DATA_BYTES_READ = 54
 TIME_BETWEEN_READS = 1500  # milliseconds between sensor reading
 DATA_BYTES_READ_PER_SESSION = 50000  # reading once a second, will be 43200 in 12 hours, so this will cover 13.8 hours
 
-COEFFS = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+COEFFS = [0, 0, 0, 0, 0, 0, -0.2161, 0, 0, 0, 0, 0, 9.19]
 
 
 class SensorHubData(object):
@@ -49,7 +49,7 @@ class SensorHubData(object):
 
 class SensorData(object):
     def __init__(self, sensor_number):
-        self.raw_color_data = np.zeros((DATA_BYTES_READ_PER_SESSION),
+        self.raw_color_data = np.zeros(DATA_BYTES_READ_PER_SESSION,
                                        dtype=[('sequence', np.uint16),
                                               ('time', 'datetime64[s]'),
                                               ('temp', np.float32),
@@ -64,7 +64,7 @@ class SensorData(object):
         self.last_sequence = -10  # guarantee the sequence is out of order first time to get a time stamp
 
         self.current_index = 0
-        self.filename = "-sensor_{0}_{1}.npy".format(sensor_number, datetime.datetime.now().strftime("%m-%d-%H"))
+        self.filename = "sensor_{0}_{1}.npy".format(sensor_number, datetime.datetime.now().strftime("%m-%d-%H"))
         # self.filename = "test.npy"
         print('filename :', self.filename)
         self.last_saved_index = 0
@@ -132,7 +132,7 @@ class SensorData(object):
             self.last_off_color_index = self.calculate_raw_color_index()
 
     def calculate_raw_color_index(self):
-        color_index = 0.0
+        color_index = COEFFS[-1]
         for i, data_pt in enumerate(self.raw_color_data[self.current_index]['spectro_data'][0]):
             color_index += data_pt * COEFFS[i]
         # print('returning color index: ', color_index, self.raw_color_data[self.current_index]['spectro_data'])

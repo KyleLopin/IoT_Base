@@ -18,6 +18,7 @@ matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk as NavToolbar
+import numpy as np
 # local files
 import sensor_node_data  # for type hinting
 
@@ -89,7 +90,10 @@ class GraphFrame(tk.Frame):
         now = datetime.now()
 
         self.axis.set_xlim([now - timedelta(minutes=15), now + timedelta(minutes=5)])
-
+        # self.axis.set_ylim([np.amin(color_series), now + timedelta(minutes=5)])
+        if color_series:
+            print('y min:', np.amin(color_series))
+            print('y max:', np.amax(color_series))
         self.canvas.draw()
 
     def update_old(self):
