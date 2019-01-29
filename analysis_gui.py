@@ -15,7 +15,7 @@ from tkinter import filedialog
 from tkinter import messagebox
 from tkinter import ttk
 
-DATA_FORMAT_STRING = '=BH13f'
+DATA_FORMAT_STRING = '>BH13f'
 print(struct.calcsize(DATA_FORMAT_STRING))
 DATA_PACKET_LEN = struct.calcsize(DATA_FORMAT_STRING)
 
@@ -58,7 +58,7 @@ class PerfectEarthAnalytics(tk.Tk):
         while index < len_data - DATA_PACKET_LEN:
             print(data[index:index+DATA_PACKET_LEN])
             index += DATA_PACKET_LEN
-            print(struct.unpack("<BH13f", data[index:index+DATA_PACKET_LEN]))
+            print(struct.unpack(DATA_FORMAT_STRING, data[index:index+DATA_PACKET_LEN]))
 
 
 

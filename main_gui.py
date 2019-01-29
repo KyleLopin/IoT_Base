@@ -17,6 +17,7 @@ import graph_frame
 import sensor_node_data
 
 DATA_LENGTH = 55
+NUMBER_OF_SENSOR = 3
 
 
 class PerfectEarthGUI(tk.Tk):
@@ -24,7 +25,7 @@ class PerfectEarthGUI(tk.Tk):
         tk.Tk.__init__(self, parent)
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
         # make data class for the data
-        self.data = sensor_node_data.SensorHubData(3)
+        self.data = sensor_node_data.SensorHubData(NUMBER_OF_SENSOR)
 
         # make ttk tabs
         self.notebook = ttk.Notebook(self)

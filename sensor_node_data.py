@@ -72,7 +72,7 @@ class SensorData(object):
         self.last_off_color_index = None
 
     def add_data(self, data, bin_data):
-        # print('add in: ', data, type(bin_data))
+        print('add in: ', data, type(bin_data))
         # print(bin_data)
         if data[1] == self.last_sequence:
             # print('duplicate data')
