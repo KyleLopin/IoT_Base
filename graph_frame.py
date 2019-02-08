@@ -68,7 +68,7 @@ class GraphFrame(tk.Frame):
 
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side='left', fill=tk.BOTH, expand=1)
-        self.lines = [None, None]
+        self.lines = [None, None, None]
 
     def update(self):
         # print('lines: ', self.lines)
@@ -77,6 +77,7 @@ class GraphFrame(tk.Frame):
             data_end = self.data.sensors[i].plot_index
             time_series = self.data.sensors[i].time_series[:data_end]
             color_series = self.data.sensors[i].color_index[:data_end]
+            print("color series: ", i, color_series)
             if self.lines[i]:
                 line.set_ydata(color_series)
                 line.set_xdata(time_series)
@@ -91,7 +92,7 @@ class GraphFrame(tk.Frame):
 
         self.axis.set_xlim([now - timedelta(minutes=15), now + timedelta(minutes=5)])
         # self.axis.set_ylim([np.amin(color_series), now + timedelta(minutes=5)])
-        if color_series:
+        if color_series.any():
             print('y min:', np.amin(color_series))
             print('y max:', np.amax(color_series))
         self.canvas.draw()

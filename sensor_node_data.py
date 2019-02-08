@@ -13,10 +13,11 @@ import matplotlib.dates as mdates
 import numpy as np
 
 RAW_DATA_BYTES_READ = 54
-TIME_BETWEEN_READS = 1500  # milliseconds between sensor reading
+TIME_BETWEEN_READS = 2000  # milliseconds between sensor reading
 DATA_BYTES_READ_PER_SESSION = 50000  # reading once a second, will be 43200 in 12 hours, so this will cover 13.8 hours
 
-COEFFS = [0, 0, 0, 0, 0, 0, -0.2161, 0, 0, 0, 0, 0, 9.19]
+# COEFFS = [0, 0, 0, 0, 0, 0, -0.2161, 0, 0, 0, 0, 0, 9.19]
+COEFFS = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
 
 
 class SensorHubData(object):
@@ -38,7 +39,7 @@ class SensorHubData(object):
             print('error in data packet')
             return
         # the first entry of the data is the sensor number (1 indexed, not 0 so add 1) so add data to that sensor
-        self.sensors[data[0]-1].add_data(data, bin_data)
+        self.sensors[data[0]].add_data(data, bin_data)
 
     @staticmethod
     def data_has_error(data):

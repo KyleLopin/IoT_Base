@@ -30,7 +30,7 @@ class PerfectEarthGUI(tk.Tk):
         # make ttk tabs
         self.notebook = ttk.Notebook(self)
         self.color_frame = graph_frame.DataGraphFrame(self, self.notebook, self.data, 'Color Scale')
-        self.notebook.add(self.color_frame, text="Color qualities")
+        self.notebook.add(self.color_frame, text="Color Summary")
 
         self.temp_frame = graph_frame.DataGraphFrame(self, self.notebook, self.data, 'Temperature')
         self.notebook.add(self.temp_frame, text="Temperature")

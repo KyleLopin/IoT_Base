@@ -59,6 +59,8 @@ class PerfectEarthAnalytics(tk.Tk):
             print(data[index:index+DATA_PACKET_LEN])
             index += DATA_PACKET_LEN
             print(struct.unpack(DATA_FORMAT_STRING, data[index:index+DATA_PACKET_LEN]))
+            _struct = struct.unpack("BH", data[index:index+3])
+            _struct.append('>BH13f')
 
 
 
