@@ -11,13 +11,15 @@ import datetime
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import numpy as np
+import struct
 
 RAW_DATA_BYTES_READ = 54
 TIME_BETWEEN_READS = 2000  # milliseconds between sensor reading
 DATA_BYTES_READ_PER_SESSION = 50000  # reading once a second, will be 43200 in 12 hours, so this will cover 13.8 hours
 
-# COEFFS = [0, 0, 0, 0, 0, 0, -0.2161, 0, 0, 0, 0, 0, 9.19]
+COEFFS = [0, 0, 0, 0, 0, 0, -0.2161, 0, 0, 0, 0, 0, 9.19]
 COEFFS = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
+WAVELENGTHS = [450, 500, 550, 570, 600, 650, 610, 680, 730, 760, 810, 860]
 
 
 class SensorHubData(object):
@@ -102,22 +104,6 @@ class SensorData(object):
         with open(self.filename, 'ab') as _f:
             _f.write(bin_data)
         _f.close()
-        # if self.current_index % 5 == 0:
-            # print('====SAVING DATA ========', self.filename)
-            # print(self.raw_color_data[self.last_saved_index:self.current_index][:])
-            # every minute save data to temp file
-            # self.raw_color_data[:self.current_index-1].tofile(self.temp_filename)
-            # self.raw_color_data[:self.current_index-1].savetxt(self.temp_filename)
-            # np.savetxt(self.filename, self.raw_color_data, fmt='%u, %M, %.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f')
-            # return
-
-            # np.save(self.filename, self.raw_color_data[self.last_saved_index:self.current_index])
-            # self.last_saved_index = self.current_index - 1
-
-            # with open(self.filename, 'ab') as _f:
-            #     np.save(_f, self.raw_color_data[self.last_saved_index:self.current_index][:])
-            #     self.last_saved_index = self.current_index-1
-            # _f.close()
 
     def data_has_error(self, data):
         if data[0] > 4:
@@ -152,6 +138,86 @@ class SensorData(object):
         ax.xaxis.set_major_formatter(xfmt)
         # ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=5))
         plt.show()
+
+
+class SavedSensorData():
+    def __init__(self, sensor_number):
+        self.sensor_number = sensor_number
+        self.data = {}
+        self.data["Temperature"] = []
+        for wavelength in WAVELENGTHS:
+            self.data["{0} nm".format(wavelength)] = SavedDataStruct()
+        self.time = []
+        self.current_time = 0
+        self.last_lights_off = 0
+        # self.tag = 0
+        self.last_sequence = None
+
+    def __iter__(self):
+        for key in self.data:
+            # print("yielding: ", key)
+            # print('data: ', self.data[key])
+            yield key, self.data[key]
+
+    def add_data(self, data_packet):
+        print('add data: ', data_packet)
+        sequence = struct.unpack("<H", data_packet[:2])
+        print("sequence: ", sequence, (sequence[0] % 2))
+        data = struct.unpack(">13f", data_packet[2:])
+        if not self.last_sequence:
+
+            self.last_sequence = sequence[0]
+        elif (self.last_sequence + 1 != sequence[0]):
+            self.last_sequence = sequence[0]
+            print("returning ")
+            return  # sequence out of sequnce
+
+        for i, data_line in enumerate(self.data):
+            # print('data line: ', data_line, self.tag)
+            # print(self.data[data_line])
+            if hasattr(self.data[data_line], "difference"):
+                # print("diff:", self.data[data_line].difference)
+                # print('on:', self.data[data_line].lights_on)
+                # print('off:', self.data[data_line].lights_off)
+                pass
+
+            if (sequence[0] % 2) == 1:
+                print(data_line)
+                if data_line == "Temperature":
+                    # print("add temp")
+                    self.data[data_line].append(data[i])
+                else:
+                    print("add lights off", sequence, data)
+
+                    self.data[data_line].lights_off.append(data[i])
+                    self.last_lights_off = data[i]
+                    self.time.append(self.current_time)
+                    self.current_time += 1
+            elif data_line != "Temperature":
+                print("add lights on", sequence, data)
+                self.data[data_line].lights_on.append(data[i])
+                self.data[data_line].difference.append(data[i] -
+                                                       self.last_lights_off)
+                # print("adding deiff: ", self.data[data_line].difference)
+
+        if data_line != "Temperature":
+            print(self.data[data_line], data_line)
+            print('llkj:', len(self.data[data_line].lights_on),
+                           len(self.data[data_line].lights_off),
+                           len(self.data[data_line].difference))
+        # print('data:', self.data)
+        # self.tag = (self.tag + 1) % 2
+        self.last_sequence = sequence[0]
+
+    def plot(self):
+        pass
+
+
+class SavedDataStruct:
+    def __init__(self):
+        self.lights_off = []
+        self.lights_on = []
+        self.difference = []
 
 
 if __name__ == "__main__":
