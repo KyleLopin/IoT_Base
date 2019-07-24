@@ -17,8 +17,20 @@ RAW_DATA_BYTES_READ = 54
 TIME_BETWEEN_READS = 2000  # milliseconds between sensor reading
 DATA_BYTES_READ_PER_SESSION = 50000  # reading once a second, will be 43200 in 12 hours, so this will cover 13.8 hours
 
-COEFFS = [0, 0, 0, 0, 0, 0, -0.2161, 0, 0, 0, 0, 0, 9.19]
-COEFFS = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
+COEFFS = [0, 0, 0, 0, 0, 0, 0.2161, 0, 0, 0, 0, 0, 9.19]
+# COEFFS = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
+# COEFFS = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
+USE_COEFF_DICT = False
+COEFF_DICT = dict()
+COEFF_DICT['const'] = -2.1540
+COEFF_DICT[450] = 14.92
+COEFF_DICT[600] = 4.56
+COEFF_DICT[650] = -14.79
+COEFF_DICT[730] = 0.06
+COEFF_DICT[450] = (-15.9, 2)
+COEFF_DICT[650] = (17.11, 2)
+COEFF_DICT[730] = (-1.61, 2)
+
 WAVELENGTHS = [450, 500, 550, 570, 600, 650, 610, 680, 730, 760, 810, 860]
 
 
@@ -112,18 +124,26 @@ class SensorData(object):
 
     def process_data(self, data):
         if (data[1] % 2 == 0) and self.last_off_color_index is not None:
-            self.color_index[self.plot_index] = self.calculate_raw_color_index() - self.last_off_color_index
+            # self.color_index[self.plot_index] = self.calculate_raw_color_index() - self.last_off_color_index
+            self.color_index[self.plot_index] = self.calculate_raw_color_index()
             self.time_series[self.plot_index] = self.raw_color_data[self.current_index]['time']
             self.plot_index += 1
         else:
             self.last_off_color_index = self.calculate_raw_color_index()
 
     def calculate_raw_color_index(self):
-        color_index = COEFFS[-1]
-        for i, data_pt in enumerate(self.raw_color_data[self.current_index]['spectro_data'][0]):
-            color_index += data_pt * COEFFS[i]
-        # print('returning color index: ', color_index, self.raw_color_data[self.current_index]['spectro_data'])
-        return color_index
+        if USE_COEFF_DICT:
+            self.color_index = COEFF_DICT['const']
+            for key, value in COEFF_DICT:
+                print('===========')
+                print(key, value)
+
+        else:
+            color_index = COEFFS[-1]
+            for i, data_pt in enumerate(self.raw_color_data[self.current_index]['spectro_data'][0]):
+                color_index += data_pt * COEFFS[i]
+            # print('returning color index: ', color_index, self.raw_color_data[self.current_index]['spectro_data'])
+            return color_index
 
     def save_data(self):
         self.raw_color_data[:self.current_index].tofile('test.fsg_nu')
@@ -150,8 +170,10 @@ class SavedSensorData():
         self.time = []
         self.current_time = 0
         self.last_lights_off = 0
+        self.color_index = []
         # self.tag = 0
         self.last_sequence = None
+        self.last_packet = None
 
     def __iter__(self):
         for key in self.data:
@@ -160,6 +182,79 @@ class SavedSensorData():
             yield key, self.data[key]
 
     def add_data(self, data_packet):
+        # print("adding start")
+        print(len(self.data["450 nm"].lights_on))
+        if not self.valid_packet(struct.unpack(">13f", data_packet[2:])):
+            print('invalid packet')
+            return
+
+        if not self.last_packet:
+            # print('sa')
+            self.last_packet = data_packet
+            self.last_sequence = struct.unpack("<H", data_packet[:2])[0]
+            return
+
+        sequence = struct.unpack("<H", data_packet[:2])[0]
+        # print('sb', sequence, self.last_sequence)
+        if (sequence - 1) == self.last_sequence:  # sequence is in order
+            # print('adding ok')
+            if (sequence % 2) == 1:  # this is a lights off sequence
+                # print('adding 1')
+                self.last_lights_off = struct.unpack(">13f", data_packet[2:])
+                # the last packet saved had the lights on
+                self.last_lights_on = struct.unpack(">13f", self.last_packet[2:])
+            else:  # this is a lights on sequence
+                # print('adding 2')
+                self.last_lights_on = struct.unpack(">13f", data_packet[2:])
+                # the last packet saved had the lights off
+                self.last_lights_off = struct.unpack(">13f", self.last_packet[2:])
+            # check if both a lights on and lights on data set is ready
+            self.parse_packets(self.last_lights_on, self.last_lights_off)
+        else:  # sequence is out of order so reset the last sequence and data packet
+            self.last_sequence = sequence
+            self.last_packet = data_packet
+
+    def parse_packets(self, lights_on_packet, lights_off_packet):
+        diff_data = []
+        for i, data_pt in enumerate(lights_on_packet):
+            diff_data.append(data_pt- lights_off_packet[i])
+        for i, data_line in enumerate(self.data):
+            if data_line == "Temperature":
+                self.data[data_line].append(lights_on_packet[i])
+                continue  # skip adding the temperature data for now
+            # the data_line, i.e. "450 nm" data is the ith data in the data packet
+            self.data[data_line].lights_on.append(lights_on_packet[i])
+            self.data[data_line].lights_off.append(lights_off_packet[i])
+            self.data[data_line].difference.append(lights_on_packet[i]-lights_off_packet[i])
+            self.calc_color_index(diff_data)
+
+    def calc_color_index(self, data):
+        if USE_COEFF_DICT:
+            color_index = COEFF_DICT['const']
+            for key, value in COEFF_DICT.items():
+                if key == 'const':
+                    continue
+                wave_index = WAVELENGTHS.index(key) + 1  # add one to compensate for temperature in struct
+                print(data)
+                print(key, value, wave_index, type(value))
+                if type(value) is tuple:
+                    print()
+                    color_index += value[0]*data[wave_index]**value[1]
+                else:
+                    color_index += value * data[wave_index]
+        else:
+            color_index = COEFFS[-1]
+            print(data)
+            for i, data_pt in enumerate(data[1:]):
+                print(i, data_pt)
+                color_index += data_pt * COEFFS[i]  # do not need -1 because enumerate starts
+                # at 0 for the second (index 1) data point so temperature data point is ignored
+
+        print('color index: ', color_index)
+        self.color_index.append(color_index)
+
+
+    def add_data_old(self, data_packet):
         print('add data: ', data_packet)
         sequence = struct.unpack("<H", data_packet[:2])
         print("sequence: ", sequence, (sequence[0] % 2))
@@ -173,6 +268,9 @@ class SavedSensorData():
             return  # sequence out of sequnce
 
         for i, data_line in enumerate(self.data):
+            if data_line == "Temperature":
+                self.data[data_line].append(data[i])
+                continue  # skip adding the temperature data for now
             # print('data line: ', data_line, self.tag)
             # print(self.data[data_line])
             if hasattr(self.data[data_line], "difference"):
@@ -183,18 +281,15 @@ class SavedSensorData():
 
             if (sequence[0] % 2) == 1:
                 print(data_line)
-                if data_line == "Temperature":
-                    # print("add temp")
-                    self.data[data_line].append(data[i])
-                else:
-                    print("add lights off", sequence, data)
+                print("add lights off", sequence, data)
 
-                    self.data[data_line].lights_off.append(data[i])
-                    self.last_lights_off = data[i]
-                    self.time.append(self.current_time)
-                    self.current_time += 1
-            elif data_line != "Temperature":
+                self.data[data_line].lights_off.append(data[i])
+                self.last_lights_off = data[i]
+                self.time.append(self.current_time)
+                self.current_time += 1
+            else:
                 print("add lights on", sequence, data)
+
                 self.data[data_line].lights_on.append(data[i])
                 self.data[data_line].difference.append(data[i] -
                                                        self.last_lights_off)
@@ -211,6 +306,19 @@ class SavedSensorData():
 
     def plot(self):
         pass
+
+    @staticmethod
+    def valid_packet(packet):
+        print('valid packet: ', packet)
+        for data_pt in packet:
+            if data_pt != 0.0:
+                return True
+        return False
+
+    # def fit_data(self):
+    #     if USE_COEFF_DICT:
+    #         y = COEFF_DICT['const']
+    #         for wavelength in WAVELENGTHS:
 
 
 class SavedDataStruct:

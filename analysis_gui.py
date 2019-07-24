@@ -67,12 +67,16 @@ class PerfectEarthAnalytics(tk.Tk):
         self.parse_data(data)
         print("DONE PARSING -----------", self.sensor_nodes.keys())
 
+
         for node in self.sensor_nodes.keys():
             print("Node: ", node)
             # self.raw_color_frame.config(text="Sensor Node {0}".format(node))
             color_frame = graph_frame.SavedDataGraph(self)
             color_frame.plot_data(self.sensor_nodes[node])
+            color_frame.pack(fill=tk.BOTH, expand=1)
             self.notebook.add(color_frame, text="Sensor Node {0}".format(node))
+
+            self.summary_frame.plot_index_lines(self.sensor_nodes[node].color_index)
             # self.notebook.tab(self.raw_color_frame, text="Sensor Node {0}".format(node))
         # self.raw_color_frame.plot_data(self.sensor_nodes)
 
@@ -93,9 +97,9 @@ class PerfectEarthAnalytics(tk.Tk):
             index += DATA_PACKET_LEN
 
             # print(struct.unpack(DATA_FORMAT_STRING, data[index:index+DATA_PACKET_LEN]))
-            _struct = list(struct.unpack("<BH", data[index:index+3]))
-            _struct.extend(list(struct.unpack('>13f', data[index+3:index+DATA_PACKET_LEN])))
-            print('struct', _struct)
+            # _struct = list(struct.unpack("<BH", data[index:index+3]))
+            # _struct.extend(list(struct.unpack('>13f', data[index+3:index+DATA_PACKET_LEN])))
+            # print('struct', _struct)
 
         # for node in self.sensor_nodes.keys():
         #     print('node:    ', node)
@@ -131,5 +135,5 @@ print(23430/56, 23430-56*418)
 if __name__ == '__main__':
     app = PerfectEarthAnalytics()
     app.title("Perfect Earth Analytics")
-    app.geometry("900x650")
+    app.geometry("950x650")
     app.mainloop()

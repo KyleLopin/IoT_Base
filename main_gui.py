@@ -90,6 +90,8 @@ class PerfectEarthGUI(tk.Tk):
 
 
 if __name__ == '__main__':
+
+
     app = PerfectEarthGUI()
     app.title("Perfect Earth Analytics")
     app.geometry("900x650")

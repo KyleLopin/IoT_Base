@@ -130,6 +130,54 @@ class GraphFrame(tk.Frame):
         self.canvas.draw()
 
 
+def wavelength_to_rgb(wavelength, max_value=255, gamma=0.8):
+    """  modified from https://www.noah.org/wiki/Wavelength_to_RGB_in_Python
+    This converts a given wavelength of light to an
+    approximate RGB color value. The wavelength must be given
+    in nanometers in the range from 380 nm through 750 nm
+    (789 THz through 400 THz).
+
+    Based on code by Dan Bruton
+    http://www.physics.sfasu.edu/astro/color/spectra.html
+    """
+    MAX_UV = 380
+    MAX_IR = 940
+    wavelength = float(wavelength)
+    if MAX_UV <= wavelength <= 440:
+        attenuation = 0.3 + 0.7 * (wavelength - MAX_UV) / (440 - MAX_UV)
+        red = ((-(wavelength - 440) / (440 - MAX_UV)) * attenuation) ** gamma
+        green = 0.0
+        blue = (1.0 * attenuation) ** gamma
+    elif wavelength <= 490:  # if less than 440 the previous if statement will be called
+        red = 0.0
+        green = ((wavelength - 440) / (490 - 440)) ** gamma
+        blue = 1.0
+    elif wavelength <= 510:
+        red = 0.0
+        green = 1.0
+        blue = (-(wavelength - 510) / (510 - 490)) ** gamma
+    elif wavelength <= 580:
+        red = ((wavelength - 510) / (580 - 510)) ** gamma
+        green = 1.0
+        blue = 0.0
+    elif wavelength <= 645:
+        red = 1.0
+        green = (-(wavelength - 645) / (645 - 580)) ** gamma
+        blue = 0.0
+    elif wavelength <= MAX_IR:
+        attenuation = 0.3 + 0.7 * (MAX_IR - wavelength) / (MAX_IR - 645)
+        red = (1.0 * attenuation) ** gamma
+        green = 0.0
+        blue = 0.0
+    else:
+        red = 0.0
+        green = 0.0
+        blue = 0.0
+    red *= max_value
+    green *= max_value
+    blue *= max_value
+    return (red, green, blue)
+
 if __name__ == '__main__':
     root = tk.Tk()
     app = DataGraphFrame(root, None, None)
