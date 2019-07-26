@@ -18,6 +18,7 @@ import sensor_node_data  # for type hinting
 
 # USB-UART Constants
 DESCRIPTOR_NAME_WIN = "USB Serial Port"
+DESCRIPTOR_NAME_WIN2 = "USB Serial Device"
 DESCRIPTOR_NAME_MAC = "FT230X Basic UART"
 BAUD_RATE = 115200
 STOP_BITS = serial.STOPBITS_ONE
@@ -25,7 +26,7 @@ PARITY = serial.PARITY_NONE
 BYTE_SIZE = serial.EIGHTBITS
 
 DETECTION_MESSAGE = b"Echo this when done"
-PRE_DATA_STR = b"Data:b'"
+PRE_DATA_STR = b'data:  b"Data|b\''
 LEN_PRE_DATA_STR = len(PRE_DATA_STR)
 
 LEN_DATA_PACKET_BYTES = 55
@@ -122,7 +123,9 @@ class PyComComm(threading.Thread):
             print(port.device)
             print(port.name)
             print(port.description)
-            if DESCRIPTOR_NAME_WIN in port.description or DESCRIPTOR_NAME_MAC in port.description:
+            if DESCRIPTOR_NAME_WIN in port.description or \
+                    DESCRIPTOR_NAME_MAC in port.description or \
+                    DESCRIPTOR_NAME_WIN2 in port.description:
                 try:
                     print("Port found: ", port)
 
@@ -199,7 +202,7 @@ class SerialHandler(threading.Thread):
     def parse_input(self, packet: str):
         # print('packet2: ', packet)
         if packet.startswith(PRE_DATA_STR):
-            # print('got data')
+            print('got data')
             if self.remaining_packet:
                 data = self.remaining_packet + packet[LEN_PRE_DATA_STR:-3]
                 self.remaining_packet = None

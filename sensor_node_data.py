@@ -54,6 +54,7 @@ class SensorHubData(object):
             return
         # the first entry of the data is the sensor number (1 indexed, not 0 so add 1) so add data to that sensor
         self.sensors[data[0]].add_data(data, bin_data)
+        # self.sensors[data[0]].add_data(data, bin_data)
 
     @staticmethod
     def data_has_error(data):
@@ -87,7 +88,7 @@ class SensorData(object):
         self.last_off_color_index = None
 
     def add_data(self, data, bin_data):
-        print('add in: ', data, type(bin_data))
+        print('add in: ', data)
         # print(bin_data)
         if data[1] == self.last_sequence:
             # print('duplicate data')
@@ -95,10 +96,12 @@ class SensorData(object):
         elif data[1] == self.last_sequence + 1:
             # print('pre time')
             seq_time = self.raw_color_data[self.current_index-1]['time'] + np.timedelta64(TIME_BETWEEN_READS, 'ms')
-            # print('sed time: ', seq_time)
+            print('sed time: ', seq_time, self.current_index)
             self.raw_color_data[self.current_index]['time'] = seq_time
         else:
+            print('starting time: ')
             self.raw_color_data[self.current_index]['time'] = datetime.datetime.now()
+            print('starting time: ', self.raw_color_data[self.current_index]['time'])
 
         self.raw_color_data[self.current_index]['sequence'] = data[1]
         self.last_sequence = data[1]
@@ -109,6 +112,7 @@ class SensorData(object):
         self.process_data(data)
 
         self.current_index += 1
+        # self.current_index += 1
         # print(self.raw_color_data[self.current_index-1])
         self.last_sequence = data[1]
 
@@ -123,6 +127,8 @@ class SensorData(object):
         return False
 
     def process_data(self, data):
+
+        # if the data is even number, the LED should be on
         if (data[1] % 2 == 0) and self.last_off_color_index is not None:
             # self.color_index[self.plot_index] = self.calculate_raw_color_index() - self.last_off_color_index
             self.color_index[self.plot_index] = self.calculate_raw_color_index()
